@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Spelling Practice</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="app">
+    <header class="top">
+      <h1>Spelling Practice</h1>
+      <button class="ghost" id="settingsBtn" aria-label="Word list and settings">⚙︎ Words</button>
+    </header>
+
+    <!-- Start screen -->
+    <section id="startScreen" class="screen">
+      <p class="lead">Listen to the word, spell it out loud, then check your answer.</p>
+      <div class="options">
+        <label>List
+          <select id="levelSel"></select>
+        </label>
+        <label>How many
+          <select id="countSel">
+            <option value="10">10 words</option>
+            <option value="20">20 words</option>
+            <option value="50">50 words</option>
+            <option value="0">All words</option>
+          </select>
+        </label>
+      </div>
+      <p class="muted" id="wordCount"></p>
+      <label class="check"><input type="checkbox" id="shuffleChk" checked> Shuffle words</label>
+      <button class="primary big" id="startBtn">Start</button>
+    </section>
+
+    <!-- Quiz screen -->
+    <section id="quizScreen" class="screen" hidden>
+      <div class="progress"><div class="bar" id="progressBar"></div></div>
+      <p class="muted" id="progressText"></p>
+
+      <div class="card" id="card">
+        <div id="prompt">
+          <div class="speaker" aria-hidden="true">🔊</div>
+          <p class="instruction">Spell the word out loud,<br>then say the word again.</p>
+        </div>
+        <div id="answer" hidden>
+          <div class="word" id="answerWord"></div>
+          <div class="letters" id="answerLetters"></div>
+          <p class="alt" id="answerAlt"></p>
+          <p class="sentence" id="answerSentence"></p>
+        </div>
+      </div>
+
+      <div class="row" id="askControls">
+        <button class="secondary" id="repeatBtn">🔁 Hear again</button>
+        <button class="secondary" id="sentenceBtn">💬 Sentence</button>
+        <button class="primary" id="revealBtn">Show answer</button>
+      </div>
+
+      <div class="row" id="gradeControls" hidden>
+        <button class="secondary" id="spellBtn">🔤 Hear it spelled</button>
+        <button class="bad" id="missBtn">✗ Missed it</button>
+        <button class="good" id="gotBtn">✓ Got it</button>
+      </div>
+      <p class="hint">Keys: <kbd>Space</kbd> hear again · <kbd>Enter</kbd> show answer · <kbd>Y</kbd>/<kbd>N</kbd> got it / missed</p>
+    </section>
+
+    <!-- Results screen -->
+    <section id="doneScreen" class="screen" hidden>
+      <h2 id="scoreText"></h2>
+      <div id="missedBox">
+        <p>Words to practice:</p>
+        <ul id="missedList" class="missed"></ul>
+      </div>
+      <div class="row">
+        <button class="secondary" id="againBtn">Start over</button>
+        <button class="primary" id="retryBtn">Practice missed words</button>
+      </div>
+    </section>
+  </main>
+
+  <!-- Settings dialog -->
+  <dialog id="settings">
+    <form method="dialog" class="settings">
+      <h2>Words &amp; settings</h2>
+      <label for="wordsInput">“My list” — your own words, one per line. Optional sentence after a <code>|</code>, alternate spelling after <code>OR</code></label>
+      <textarea id="wordsInput" rows="8" spellcheck="false"
+        placeholder="friend | My friend sits next to me.&#10;fertilizer OR fertiliser"></textarea>
+
+      <label for="voiceSel">Voice</label>
+      <select id="voiceSel"></select>
+
+      <label for="rateInput">Speaking speed <span id="rateVal"></span></label>
+      <input type="range" id="rateInput" min="0.5" max="1.3" step="0.05" value="0.85">
+
+      <label class="check"><input type="checkbox" id="autoSentenceChk"> Read the sentence automatically</label>
+
+      <div class="row">
+        <button type="button" class="secondary" id="testVoiceBtn">Test voice</button>
+        <button value="save" class="primary" id="saveBtn">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="words.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
