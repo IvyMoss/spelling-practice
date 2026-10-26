@@ -48,13 +48,17 @@
           <div class="word" id="answerWord"></div>
           <div class="letters" id="answerLetters"></div>
           <p class="alt" id="answerAlt"></p>
+          <p class="definition" id="answerDef"></p>
           <p class="sentence" id="answerSentence"></p>
         </div>
       </div>
 
       <div class="row" id="askControls">
         <button class="secondary" id="repeatBtn">🔁 Hear again</button>
+        <button class="secondary" id="defBtn">📖 Definition</button>
         <button class="secondary" id="sentenceBtn">💬 Sentence</button>
+      </div>
+      <div class="row" id="revealRow">
         <button class="primary" id="revealBtn">Show answer</button>
       </div>
 
@@ -63,7 +67,7 @@
         <button class="bad" id="missBtn">✗ Missed it</button>
         <button class="good" id="gotBtn">✓ Got it</button>
       </div>
-      <p class="hint">Keys: <kbd>Space</kbd> hear again · <kbd>Enter</kbd> show answer · <kbd>Y</kbd>/<kbd>N</kbd> got it / missed</p>
+      <p class="hint">Keys: <kbd>Space</kbd> hear again · <kbd>D</kbd> definition · <kbd>S</kbd> sentence · <kbd>Enter</kbd> show answer · <kbd>Y</kbd>/<kbd>N</kbd> got it / missed</p>
     </section>
 
     <!-- Results screen -->
@@ -84,9 +88,9 @@
   <dialog id="settings">
     <form method="dialog" class="settings">
       <h2>Words &amp; settings</h2>
-      <label for="wordsInput">“My list” — your own words, one per line. Optional sentence after a <code>|</code>, alternate spelling after <code>OR</code></label>
+      <label for="wordsInput">“My list” — your own words, one per line. Optional: <code>word | sentence | definition</code>, and alternate spellings with <code>OR</code>. Words without a definition are looked up online.</label>
       <textarea id="wordsInput" rows="8" spellcheck="false"
-        placeholder="friend | My friend sits next to me.&#10;fertilizer OR fertiliser"></textarea>
+        placeholder="friend | My friend sits next to me. | a person you like and trust&#10;fertilizer OR fertiliser"></textarea>
 
       <label for="voiceSel">Voice</label>
       <select id="voiceSel"></select>
@@ -104,6 +108,7 @@
   </dialog>
 
   <script src="words.js"></script>
+  <script src="info.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

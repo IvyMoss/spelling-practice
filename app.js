@@ -33,18 +33,63 @@
 
   let settings = loadSettings();
 
-  // "word OR alt | sentence" -> { word, alts, sentence }
+  // "word OR alt | sentence | definition" -> { word, alts, sentence, definition }
   function parseWords(text) {
     return text
       .split("\n")
       .map((line) => line.trim())
       .filter((line) => line && !line.startsWith("#"))
       .map((line) => {
-        const [spellings, ...rest] = line.split("|");
+        const [spellings, sentence = "", definition = ""] = line.split("|").map((s) => s.trim());
         const [word, ...alts] = spellings.split(/\s+OR\s+/).map((s) => s.trim());
-        return { word, alts, sentence: rest.join("|").trim() };
+        return { word, alts, sentence, definition };
       })
       .filter((w) => w.word);
+  }
+
+  // ---------- Definitions & sentences ----------
+  const POS_NAMES = {
+    n: "noun", v: "verb", adj: "adjective", adv: "adverb",
+    prep: "preposition", interj: "interjection", pron: "pronoun", conj: "conjunction",
+  };
+  const infoCache = new Map();
+
+  // Returns { pos, definition, sentence } for a quiz item. Order of preference:
+  // what was typed in "My list", then info.js, then the free online dictionary.
+  async function getInfo(item) {
+    const key = item.word.toLowerCase();
+    if (infoCache.has(key)) return infoCache.get(key);
+    const known = window.WORD_INFO[key] || [];
+    const info = {
+      pos: POS_NAMES[known[0]] || known[0] || "",
+      definition: item.definition || known[1] || "",
+      sentence: item.sentence || known[2] || "",
+    };
+    if (!info.definition || !info.sentence) {
+      const online = await lookupOnline(item.word);
+      info.pos = info.pos || online.pos;
+      info.definition = info.definition || online.definition;
+      info.sentence = info.sentence || online.sentence;
+    }
+    infoCache.set(key, info);
+    return info;
+  }
+
+  async function lookupOnline(word) {
+    try {
+      const res = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`);
+      if (!res.ok) return {};
+      const meanings = (await res.json()).flatMap((entry) => entry.meanings || []);
+      const first = meanings[0];
+      const example = meanings.flatMap((m) => m.definitions).find((d) => d.example);
+      return {
+        pos: first?.partOfSpeech || "",
+        definition: first?.definitions[0]?.definition || "",
+        sentence: example?.example || "",
+      };
+    } catch {
+      return {}; // offline or blocked
+    }
   }
 
   function wordsForLevel(level) {
@@ -89,16 +134,33 @@
     stopSpeaking();
     const item = queue[index];
     await speak(item.word);
-    if (settings.autoSentence && item.sentence) {
-      await speak(item.sentence);
-      await speak(item.word);
+    if (settings.autoSentence) {
+      const { sentence } = await getInfo(item);
+      if (sentence && item === queue[index]) {
+        await speak(sentence);
+        await speak(item.word);
+      }
     }
+  }
+
+  // Like a spelling bee: the word, then the requested info, then the word again.
+  async function sayDefinition() {
+    stopSpeaking();
+    const item = queue[index];
+    const { pos, definition } = await getInfo(item);
+    if (item !== queue[index]) return;
+    if (!definition) return speak("Sorry, I don't have a definition for this word.");
+    await speak(`${pos ? pos + ". " : ""}${definition.replace(/\.+$/, "")}.`);
+    await speak(item.word);
   }
 
   async function saySentence() {
     stopSpeaking();
     const item = queue[index];
-    if (item.sentence) await speak(item.sentence);
+    const { sentence } = await getInfo(item);
+    if (item !== queue[index]) return;
+    if (!sentence) return speak("Sorry, I don't have a sentence for this word.");
+    await speak(sentence);
     await speak(item.word);
   }
 
@@ -167,8 +229,9 @@
     $("prompt").hidden = false;
     $("answer").hidden = true;
     $("askControls").hidden = false;
+    $("revealRow").hidden = false;
     $("gradeControls").hidden = true;
-    $("sentenceBtn").hidden = !item.sentence;
+    getInfo(item); // warm the cache so the buttons respond instantly
     sayWord();
     $("revealBtn").focus();
   }
@@ -187,10 +250,23 @@
       $("answerLetters").appendChild(s);
     });
     $("answerAlt").textContent = item.alts.length ? `Also correct: ${item.alts.join(", ")}` : "";
-    $("answerSentence").textContent = item.sentence;
+    $("answerDef").textContent = "";
+    $("answerSentence").textContent = "";
+    getInfo(item).then(({ pos, definition, sentence }) => {
+      if (item !== queue[index] || !revealed) return;
+      $("answerDef").innerHTML = "";
+      if (pos) {
+        const em = document.createElement("em");
+        em.textContent = `${pos} · `;
+        $("answerDef").appendChild(em);
+      }
+      $("answerDef").append(definition);
+      $("answerSentence").textContent = sentence ? `“${sentence}”` : "";
+    });
     $("prompt").hidden = true;
     $("answer").hidden = false;
     $("askControls").hidden = true;
+    $("revealRow").hidden = true;
     $("gradeControls").hidden = false;
     $("gotBtn").focus();
   }
@@ -267,6 +343,7 @@
   $("shuffleChk").onchange = (e) => { settings.shuffle = e.target.checked; saveSettings(); };
 
   $("repeatBtn").onclick = sayWord;
+  $("defBtn").onclick = sayDefinition;
   $("sentenceBtn").onclick = saySentence;
   $("revealBtn").onclick = reveal;
   $("spellBtn").onclick = spellOut;
@@ -293,6 +370,8 @@
     const k = e.key.toLowerCase();
     if (k === " ") { e.preventDefault(); revealed ? spellOut() : sayWord(); }
     else if (k === "enter" && !revealed) { e.preventDefault(); reveal(); }
+    else if (k === "d" && !revealed) sayDefinition();
+    else if (k === "s" && !revealed) saySentence();
     else if (k === "y" && revealed) grade(true);
     else if (k === "n" && revealed) grade(false);
   });

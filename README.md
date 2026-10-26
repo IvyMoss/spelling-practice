@@ -16,13 +16,22 @@ No build step, no dependencies. Speech uses the browser's built-in
 | `style.css` | Styles (light/dark, phone-friendly) |
 | `app.js` | Quiz logic and speech |
 | `words.js` | Word lists: 2026–2027 Scripps School Spelling Bee study list (One, Two, Three Bee — 150 words each) |
+| `info.js` | Part of speech, definition, and example sentence for every study-list word |
 
-Word list format, one per line (sentence and alternate spelling optional):
+Before showing the answer, the student can tap **Definition** or **Sentence**
+(or press D / S). Like at a real bee, the app reads the definition or sentence
+and then says the word again. Both are shown with the answer.
+
+"My list" format, one word per line. Everything after the word is optional:
 
 ```
-because | I stayed inside because it was raining.
+because | I stayed inside because it was raining. | for the reason that
 fertilizer OR fertiliser
 ```
+
+If a "My list" word has no definition or sentence, the app looks it up in the
+free online dictionary at dictionaryapi.dev, which needs an internet connection
+and doesn't always have an example sentence.
 
 The start screen picks a level (One / Two / Three Bee, All, or My list) and how
 many words (10 / 20 / 50 / all). "My list" is edited in the app under
