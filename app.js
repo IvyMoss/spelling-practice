@@ -92,10 +92,26 @@
     }
   }
 
+  // ---------- Recorded audio ----------
+  // Clips live at audio/<level>-<number>-<slug>-{word,definition,sentence}.mp3,
+  // matching the file names in audio-script.json.
+  const slug = (w) =>
+    w.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+
+  const AUDIO = new Map(); // lowercase word -> clip path prefix
+  Object.entries(LISTS).forEach(([key, list]) => {
+    parseWords(list.words).forEach((w, i) => {
+      AUDIO.set(w.word.toLowerCase(), `audio/${key}-${String(i + 1).padStart(3, "0")}-${slug(w.word)}`);
+    });
+  });
+
+  // Study-list words get recordings even when typed into "My list".
+  const withAudio = (items) => items.map((w) => ({ ...w, audio: AUDIO.get(w.word.toLowerCase()) }));
+
   function wordsForLevel(level) {
-    if (level === "custom") return parseWords(settings.customText);
-    if (level === "all") return Object.values(LISTS).flatMap((l) => parseWords(l.words));
-    return parseWords(LISTS[level].words);
+    if (level === "custom") return withAudio(parseWords(settings.customText));
+    if (level === "all") return withAudio(Object.values(LISTS).flatMap((l) => parseWords(l.words)));
+    return withAudio(parseWords(LISTS[level].words));
   }
 
   // ---------- Speech ----------
@@ -126,42 +142,81 @@
     });
   }
 
+  // Bumped on every stop, so a sequence that was interrupted knows not to continue.
+  let playGen = 0;
+  let currentAudio = null;
+  let finishCurrent = null;
+
   function stopSpeaking() {
+    playGen++;
     if (synth) synth.cancel();
+    if (currentAudio) currentAudio.pause();
+    if (finishCurrent) finishCurrent(true);
+    currentAudio = finishCurrent = null;
+  }
+
+  // Resolves true when the clip finished (or was stopped), false if it couldn't play.
+  function playFile(src) {
+    return new Promise((resolve) => {
+      const a = new Audio(src);
+      a.playbackRate = settings.rate / defaults.rate; // the default speed plays clips as recorded
+      currentAudio = a;
+      finishCurrent = resolve;
+      a.onended = () => resolve(true);
+      a.onerror = () => resolve(false);
+      a.play().catch(() => resolve(false));
+    });
+  }
+
+  // Plays the recorded clip if there is one, otherwise reads the text with the browser voice.
+  async function sayClip(item, kind, text) {
+    const gen = playGen;
+    if (item.audio) {
+      const played = await playFile(`${item.audio}-${kind}.mp3`);
+      if (played || gen !== playGen) return;
+    }
+    if (gen === playGen) await speak(text);
   }
 
   async function sayWord() {
     stopSpeaking();
+    const gen = playGen;
     const item = queue[index];
-    await speak(item.word);
-    if (settings.autoSentence) {
-      const { sentence } = await getInfo(item);
-      if (sentence && item === queue[index]) {
-        await speak(sentence);
-        await speak(item.word);
-      }
-    }
+    await sayClip(item, "word", item.word);
+    // The word was just said, so skip saying it again before the sentence.
+    if (settings.autoSentence && gen === playGen) await saySentence({ sayWordFirst: false });
   }
 
-  // Like a spelling bee: the word, then the requested info, then the word again.
+  // Like a spelling bee: the word, the requested info, then the word again.
   async function sayDefinition() {
     stopSpeaking();
+    const gen = playGen;
     const item = queue[index];
     const { pos, definition } = await getInfo(item);
-    if (item !== queue[index]) return;
+    if (gen !== playGen) return;
     if (!definition) return speak("Sorry, I don't have a definition for this word.");
-    await speak(`${pos ? pos + ". " : ""}${definition.replace(/\.+$/, "")}.`);
-    await speak(item.word);
+    await sayClip(item, "word", item.word);
+    if (gen !== playGen) return;
+    // A definition typed into "My list" replaces the recorded one.
+    const clipItem = item.definition ? { ...item, audio: null } : item;
+    await sayClip(clipItem, "definition", `${pos ? pos + ". " : ""}${definition.replace(/\.+$/, "")}.`);
+    if (gen === playGen) await sayClip(item, "word", item.word);
   }
 
-  async function saySentence() {
+  async function saySentence({ sayWordFirst = true } = {}) {
     stopSpeaking();
+    const gen = playGen;
     const item = queue[index];
     const { sentence } = await getInfo(item);
-    if (item !== queue[index]) return;
+    if (gen !== playGen) return;
     if (!sentence) return speak("Sorry, I don't have a sentence for this word.");
-    await speak(sentence);
-    await speak(item.word);
+    if (sayWordFirst) {
+      await sayClip(item, "word", item.word);
+      if (gen !== playGen) return;
+    }
+    const clipItem = item.sentence ? { ...item, audio: null } : item;
+    await sayClip(clipItem, "sentence", sentence);
+    if (gen === playGen) await sayClip(item, "word", item.word);
   }
 
   // How each character is read when spelling out loud.
@@ -185,7 +240,7 @@
     }
     if (run !== spellRun) return;
     tiles.forEach((t) => t.classList.remove("lit"));
-    await speak(queue[index].word);
+    await sayClip(queue[index], "word", queue[index].word);
   }
 
   // ---------- Quiz state ----------
@@ -232,6 +287,8 @@
     $("revealRow").hidden = false;
     $("gradeControls").hidden = true;
     getInfo(item); // warm the cache so the buttons respond instantly
+    const next = queue[index + 1];
+    if (next?.audio) new Audio(`${next.audio}-word.mp3`).preload = "auto";
     sayWord();
     $("revealBtn").focus();
   }

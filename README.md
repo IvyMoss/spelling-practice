@@ -17,6 +17,17 @@ No build step, no dependencies. Speech uses the browser's built-in
 | `app.js` | Quiz logic and speech |
 | `words.js` | Word lists: 2026–2027 Scripps School Spelling Bee study list (One, Two, Three Bee — 150 words each) |
 | `info.js` | Part of speech, definition, and example sentence for every study-list word |
+| `audio/` | 1,350 recorded MP3s (word, definition, sentence for each study-list word) |
+| `audio-script.json` / `.csv` | The text and file name for every clip |
+| `generate-audio.py` | Makes the clips from `audio-script.json` with edge-tts |
+
+The app plays the recorded clips for every study-list word, including study-list
+words typed into "My list". The browser's own voice is only a backup: it spells
+out the letters and reads words that have no recording. The speed slider also
+speeds up or slows down the clips; the default speed plays them as recorded.
+
+To re-record clips: edit the `_tts` text in `audio-script.json`, delete those MP3s
+from `audio/`, and run `python generate-audio.py` (it skips files that already exist).
 
 Before showing the answer, the student can tap **Definition** or **Sentence**
 (or press D / S). Like at a real bee, the app reads the definition or sentence
